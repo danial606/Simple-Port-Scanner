@@ -1,6 +1,17 @@
 import socket
 import termcolor
 import threading
+from tqdm import tqdm
+import ipaddress
+
+open_ports = []
+
+def is_valid_ip(ip):
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 def scan_port(ipaddress, port):
     try:
@@ -14,6 +25,7 @@ def scan_port(ipaddress, port):
         except:
             print(termcolor.colored(f"Port {port} Open, but no banner received", 'green'))
         
+        open_ports.append(port)
         sock.close()
     except socket.timeout:
         print(termcolor.colored(f"Timeout on port {port}", 'red'))
@@ -22,7 +34,8 @@ def scan_port(ipaddress, port):
 
 def scan(target, start_port, end_port):
     print(f'\n Starting Scan For {target}')
-    for port in range(start_port, end_port + 1):
+    
+    for port in tqdm(range(start_port, end_port + 1), desc=f"Scanning Ports on {target}"):
         thread = threading.Thread(target=scan_port, args=(target, port))
         thread.start()
 
@@ -34,6 +47,17 @@ start_port, end_port = map(int, port_range.split('-'))
 if ',' in targets:
     print(termcolor.colored("Scanning Multiple IPs", 'green'))
     for ip_addr in targets.split(','):
-        scan(ip_addr.strip(), start_port, end_port)
+        ip_addr = ip_addr.strip()
+        if is_valid_ip(ip_addr):
+            open_ports.clear() 
+            scan(ip_addr, start_port, end_port)
+            print(f"\nScan completed for {ip_addr}. Open ports: {open_ports}")
+        else:
+            print(termcolor.colored(f"Invalid IP address: {ip_addr}", 'red'))
 else:
-    scan(targets, start_port, end_port)
+    if is_valid_ip(targets):
+        open_ports.clear() 
+        scan(targets, start_port, end_port)
+        print(f"\nScan completed for {targets}. Open ports: {open_ports}")
+    else:
+        print(termcolor.colored("Invalid IP address", 'red'))
